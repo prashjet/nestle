@@ -82,7 +82,7 @@ def resample_equal(samples, weights, rstate=None):
 
     weights : `~numpy.ndarray`
         Weight of each sample. Shape is (N,).
-    
+
     Returns
     -------
     equal_weight_samples : `~numpy.ndarray`
@@ -216,9 +216,9 @@ def print_progress(info):
     info : dict
         Dictionary containing keys ``'it'`` and ``'logz'``.
     """
-
-    print("\r\033[Kit={:6d} logz={:8f}".format(info['it'], info['logz']),
-          end='')
+    string = "\r\033[Kit={:6d} logz={:8f} dlogz={:8f}"
+    string = string.format(info['it'], info['logz'], info['logzerr'])
+    print(string, end='')
     sys.stdout.flush()  # because flush keyword not in print() in py2.7
 
 
@@ -363,7 +363,7 @@ def bounding_ellipsoid(x, pointvol=0., minvol=False):
     ctr = np.mean(x, axis=0)
     delta = x - ctr
     cov = np.cov(delta, rowvar=0)
-    
+
     # when ndim = 1, np.cov returns a 0-d array. Make it a 1x1 2-d array.
     if ndim == 1:
         cov = np.atleast_2d(cov)
@@ -394,7 +394,7 @@ def bounding_ellipsoid(x, pointvol=0., minvol=False):
     # Points should obey x^T A x <= 1, so we calculate x^T A x for
     # each point and then scale A up or down to make the
     # "outermost" point obey x^T A x = 1.
-    # 
+    #
     # fast way to compute delta[i] @ A @ delta[i] for all i.
     f = np.einsum('...i, ...i', np.tensordot(delta, a, axes=1), delta)
     fmax = np.max(f)
@@ -514,7 +514,7 @@ def bounding_ellipsoids(x, pointvol=0.):
 def sample_ellipsoids(ells, rstate=np.random):
     """Chose sample(s) randomly distributed within a set of
     (possibly overlapping) ellipsoids.
-    
+
     Parameters
     ----------
     ells : list of Ellipsoid
@@ -522,7 +522,7 @@ def sample_ellipsoids(ells, rstate=np.random):
     Returns
     -------
     x : 1-d ndarray
-        Coordinates within the ellipsoids. 
+        Coordinates within the ellipsoids.
     """
 
     nells = len(ells)
@@ -533,7 +533,7 @@ def sample_ellipsoids(ells, rstate=np.random):
     # Select an ellipsoid at random, according to volumes
     vols = np.array([ell.vol for ell in ells])
     i = random_choice(nells, vols / vols.sum(), rstate=rstate)
-    
+
     # Select a point from the ellipsoid
     x = ells[i].sample(rstate=rstate)
 
@@ -568,7 +568,7 @@ class FakePool(object):
 
     def shutdown(self):
         pass
-    
+
 class FakeFuture(object):
     """A fake Future to mimic function calls."""
 
@@ -851,14 +851,14 @@ def sample(loglikelihood, prior_transform, ndim, npoints=100,
         ``callback=nestle.print_progress``.
 
     queue_size: int, optional
-        Carry out evaluation in parallel by queueing up new active point 
+        Carry out evaluation in parallel by queueing up new active point
         proposals using at most this many threads. Each thread independently
-        proposes new live points until one is selected. 
-        Default is no parallelism (queue_size=1). 
+        proposes new live points until one is selected.
+        Default is no parallelism (queue_size=1).
 
     pool: ThreadPoolExecutor
-        Use this pool of workers to propose live points in parallel. If 
-        queue_size>1 and `pool` is not specified, an Exception will be thrown. 
+        Use this pool of workers to propose live points in parallel. If
+        queue_size>1 and `pool` is not specified, an Exception will be thrown.
 
     logl_args, prior_args: list
         Args passed to the loglikelihood and prior transform
@@ -985,7 +985,7 @@ def sample(loglikelihood, prior_transform, ndim, npoints=100,
     active_v = np.empty((npoints, ndim), dtype=np.float64)  # real params
     for i in range(npoints):
         active_v[i, :] = prior_transform(active_u[i, :])
-    active_logl = np.fromiter(pool.map(loglikelihood, active_v), 
+    active_logl = np.fromiter(pool.map(loglikelihood, active_v),
                               dtype=np.float64) # log likelihood
     sampler = _SAMPLERS[method](loglikelihood, prior_transform, active_u,
                                 rstate, options, queue_size, pool)
@@ -1007,7 +1007,8 @@ def sample(loglikelihood, prior_transform, ndim, npoints=100,
     callback_info = {'it': 0,
                      'logz': logz,
                      'active_u': active_u,
-                     'sampler': sampler}
+                     'sampler': sampler,
+                     'logzerr': np.inf}
 
     # Nested sampling loop.
     ndecl = 0
@@ -1016,7 +1017,7 @@ def sample(loglikelihood, prior_transform, ndim, npoints=100,
     since_update = 0
     while it < maxiter:
         if (callback is not None) and (it > 0):
-            callback_info.update(it=it, logz=logz)
+            callback_info.update(it=it, logz=logz, logzerr=logzerr)
             callback(callback_info)
 
         # worst object in collection and its weight (= volume * likelihood)
@@ -1065,7 +1066,8 @@ def sample(loglikelihood, prior_transform, ndim, npoints=100,
         # below some threshold.
         if dlogz is not None:
             logz_remain = np.max(active_logl) - it / npoints
-            if np.logaddexp(logz, logz_remain) - logz < dlogz:
+            logzerr = np.logaddexp(logz, logz_remain) - logz
+            if logzerr < dlogz:
                 break
 
         # Stopping criterion 2: logwt has been declining for a while.
