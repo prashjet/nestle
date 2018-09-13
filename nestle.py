@@ -1138,7 +1138,8 @@ def sample(loglikelihood, prior_transform, ndim, npoints=100,
         ('samples', np.array(saved_v)),
         ('weights', np.exp(np.array(saved_logwt) - logz)),
         ('logvol', np.array(saved_logvol)),
-        ('logl', np.array(saved_logl))
+        ('logl', np.array(saved_logl)),
+        ('logzerr_internal', logzerr)
         ])
 
 
