@@ -697,6 +697,7 @@ class SingleEllipsoidSampler(Sampler):
 
     def set_options(self, options):
         self.enlarge = options.get('enlarge', 1.2)
+        self.maxcall_np = options.get('maxcall_np', 1000)
 
     def update(self, pointvol):
         self.empty_queue()
@@ -719,6 +720,8 @@ class SingleEllipsoidSampler(Sampler):
             ncall += 1
             if logl >= loglstar:
                 break
+            if ncall > self.maxcall_np:
+                raise StopIteration('too many calls in new_point')
 
         return u, v, logl, ncall
 
@@ -729,6 +732,7 @@ class MultiEllipsoidSampler(Sampler):
 
     def set_options(self, options):
         self.enlarge = options.get('enlarge', 1.2)
+        self.maxcall_np = options.get('maxcall_np', 1000)
 
     def update(self, pointvol):
         self.empty_queue()
@@ -751,6 +755,8 @@ class MultiEllipsoidSampler(Sampler):
             ncall += 1
             if logl >= loglstar:
                 break
+            if ncall > self.maxcall_np:
+                raise StopIteration('too many calls in new_point')
 
         return u, v, logl, ncall
 
