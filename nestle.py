@@ -668,6 +668,7 @@ class ClassicSampler(Sampler):
         accept = 0
         reject = 0
         ncall = 0
+        success = 0
         while ncall < self.steps or accept == 0:
             new_u = self.propose_point(u, scale)
             new_v = self.prior_transform(new_u)
@@ -677,6 +678,7 @@ class ClassicSampler(Sampler):
                 v = new_v
                 logl = new_logl
                 accept += 1
+                success = 1
             else:
                 reject += 1
 
@@ -688,7 +690,7 @@ class ClassicSampler(Sampler):
 
             ncall += 1
 
-        return u, v, logl, ncall
+        return u, v, logl, ncall, success
 
 
 class SingleEllipsoidSampler(Sampler):
@@ -697,7 +699,7 @@ class SingleEllipsoidSampler(Sampler):
 
     def set_options(self, options):
         self.enlarge = options.get('enlarge', 1.2)
-        self.maxcall_np = options.get('maxcall_np', 1000)
+        self.maxcall_np = options.get('maxcall_np', 5000)
 
     def update(self, pointvol):
         self.empty_queue()
@@ -715,15 +717,18 @@ class SingleEllipsoidSampler(Sampler):
 
     def new_point(self, loglstar):
         ncall = 0
+        success = 0
         while True:
             u, v, logl = self.get_point_value()
             ncall += 1
             if logl >= loglstar:
+                success = 1
                 break
             if ncall > self.maxcall_np:
-                raise StopIteration('too many calls in new_point')
+                # raise StopIteration('too many calls in new_point')
+                break
 
-        return u, v, logl, ncall
+        return u, v, logl, ncall, success
 
 
 class MultiEllipsoidSampler(Sampler):
@@ -732,7 +737,7 @@ class MultiEllipsoidSampler(Sampler):
 
     def set_options(self, options):
         self.enlarge = options.get('enlarge', 1.2)
-        self.maxcall_np = options.get('maxcall_np', 1000)
+        self.maxcall_np = options.get('maxcall_np', 5000)
 
     def update(self, pointvol):
         self.empty_queue()
@@ -750,15 +755,18 @@ class MultiEllipsoidSampler(Sampler):
 
     def new_point(self, loglstar):
         ncall = 0
+        success = 0
         while True:
             u, v, logl = self.get_point_value()
             ncall += 1
             if logl >= loglstar:
+                success = 1
                 break
             if ncall > self.maxcall_np:
-                raise StopIteration('too many calls in new_point')
+                # raise StopIteration('too many calls in new_point')
+                break
 
-        return u, v, logl, ncall
+        return u, v, logl, ncall, success
 
 
 # -----------------------------------------------------------------------------
@@ -1056,7 +1064,12 @@ def sample(loglikelihood, prior_transform, ndim, npoints=100,
 
         # Choose a new point from within the likelihood constraint
         # (having logl > loglstar).
-        u, v, logl, nc = sampler.new_point(loglstar)
+        u, v, logl, nc, success = sampler.new_point(loglstar)
+
+        # Stopping criterion 0: we haven't found a better point
+        # set maxcall_np = np.inf to disable this
+        if success == False:
+            break
 
         # replace worst point with new point
         active_u[worst] = u
